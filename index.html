@@ -244,7 +244,9 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
 .item.shake { animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
-.pads { width: 100%; max-width: 560px; display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1.6fr; gap: 6px; }
+.pads { width: 100%; max-width: 560px; display: grid; grid-template-columns: 1.4fr 1.4fr .5fr 1fr 1fr 1.5fr; gap: 6px; }
+.pads .gap { pointer-events: none; }
+.pad.brake.bigb { font-size: 15px; }
 .pad.arrow { font-size: 30px; }
 canvas#road { touch-action: none; }
 .pad { font-family: var(--display); font-size: 22px; color: var(--paint); background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 16px 0; cursor: pointer; touch-action: none; }
@@ -312,7 +314,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
         <button class="btn big alt" id="openGarage"><span class="bi" aria-hidden="true">🔧</span>GARAGE</button>
         <button class="btn big" id="openDuo"><span class="bi" aria-hidden="true">👥</span>2 PLAYER</button>
       </div>
-      <p class="small touch-hint">Your car drives by itself! Steer with ◀ ▶ or touch the left or right side of the road. Tap BRAKE to slow down, NITRO to zoom and POWER for power-ups!</p>
+      <p class="small touch-hint">Your car drives by itself! Left thumb steers with ◀ ▶ (or touch the left or right side of the road). Right thumb: hold BRAKE to slow down, NITRO to zoom and POWER for power-ups!</p>
       <p class="small keys">↑ / W gas · ↓ / S brake · ← → steer · Shift or N nitro<br>Space = power-up in races (nitro in Training)<br>In races, smash into rival racers to send them flying!<br>C camera · H horn · P pause</p>
     </div>
 
@@ -399,10 +401,11 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   </div>
   <div class="pads">
     <button class="pad arrow" data-in="left" aria-label="Steer left">◀</button>
-    <button class="pad small brake" data-in="brake">BRAKE</button>
+    <button class="pad arrow" data-in="right" aria-label="Steer right">▶</button>
+    <span class="gap" aria-hidden="true"></span>
     <button class="pad small pow" data-in="item">POWER</button>
     <button class="pad small nos" data-in="nitro">NITRO</button>
-    <button class="pad arrow" data-in="right" aria-label="Steer right">▶</button>
+    <button class="pad small brake bigb" data-in="brake">BRAKE</button>
   </div>
 </div>
 
