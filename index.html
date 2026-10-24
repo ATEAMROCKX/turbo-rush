@@ -244,7 +244,9 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
 .item.shake { animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
-.pads { width: 100%; max-width: 560px; display: grid; grid-template-columns: 1fr 1fr 1.1fr 1.1fr 1fr 1.2fr; gap: 6px; }
+.pads { width: 100%; max-width: 560px; display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1.6fr; gap: 6px; }
+.pad.arrow { font-size: 30px; }
+canvas#road { touch-action: none; }
 .pad { font-family: var(--display); font-size: 22px; color: var(--paint); background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 16px 0; cursor: pointer; touch-action: none; }
 .pad.small { font-size: 13px; }
 .pad.gas { background: #173d30; border-color: var(--mint); }
@@ -310,7 +312,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
         <button class="btn big alt" id="openGarage"><span class="bi" aria-hidden="true">🔧</span>GARAGE</button>
         <button class="btn big" id="openDuo"><span class="bi" aria-hidden="true">👥</span>2 PLAYER</button>
       </div>
-      <p class="small touch-hint">Hold GAS to go, steer with ◀ ▶, tap POWER to use power-ups and NITRO for a speed boost!</p>
+      <p class="small touch-hint">Your car drives by itself! Steer with ◀ ▶ or touch the left or right side of the road. Tap BRAKE to slow down, NITRO to zoom and POWER for power-ups!</p>
       <p class="small keys">↑ / W gas · ↓ / S brake · ← → steer · Shift or N nitro<br>Space = power-up in races (nitro in Training)<br>In races, smash into rival racers to send them flying!<br>C camera · H horn · P pause</p>
     </div>
 
@@ -396,12 +398,11 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     </div>
   </div>
   <div class="pads">
-    <button class="pad" data-in="left" aria-label="Steer left">◀</button>
-    <button class="pad" data-in="right" aria-label="Steer right">▶</button>
+    <button class="pad arrow" data-in="left" aria-label="Steer left">◀</button>
+    <button class="pad small brake" data-in="brake">BRAKE</button>
     <button class="pad small pow" data-in="item">POWER</button>
     <button class="pad small nos" data-in="nitro">NITRO</button>
-    <button class="pad small brake" data-in="brake">BRAKE</button>
-    <button class="pad small gas" data-in="gas">GAS</button>
+    <button class="pad arrow" data-in="right" aria-label="Steer right">▶</button>
   </div>
 </div>
 
@@ -1413,6 +1414,9 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   let cars = [], coins = [], sparks = [], pops = [], score = 0, runCoins = 0, spawnT = 1, coinT = 2, shake = 0, nitro = .5, dist = 0, combo = 0, comboT = 0;
   let mtnOff = 0, cityOff = 0, hillOff = 0, cloudOff = 0;
   const input = { left: false, right: false, gas: false, brake: false, nitro: false };
+  // phones: the car drives forward by itself, and you can steer by touching the left or right side of the road
+  let touchMode = matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const roadSteer = { left: false, right: false }, roadPts = new Map();
   const TRAFFIC_COLORS = ['#c7cbd1', '#f1f1f3', '#1c1d22', '#24396b', '#8a1320', '#5d6670', '#3f5a48', '#b46a2a', '#7a1f5c'];
   const VEH = { rocket: [770, 470], bolt: [780, 490], light: [780, 470], super: [760, 470], hatch: [680, 430], sedan: [700, 480], van: [740, 520], sports: [720, 460], muscle: [740, 480], truck: [820, 1100] };
   const LANE_SPEED = [4300, 3800, 3300, 2700];
@@ -1501,7 +1505,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     if (state === 'race') {
       const top = info.top * (nitroOn ? 1.3 : 1);
       if (nitroOn) { speed += info.acc * 2.4 * dt; nitro = Math.max(0, nitro - dt / 2.8); }
-      else if (input.gas && !noFuel) speed += info.acc * (1 - speed / top * .75) * dt;
+      else if ((input.gas || (touchMode && !input.brake)) && !noFuel) speed += info.acc * (1 - speed / top * .75) * dt;
       else speed -= 700 * dt;
       if (input.brake) speed -= 5200 * dt;
       if (speed > top) speed = Math.max(top, speed - 450 * dt); // nitro speed fades away slowly
@@ -1513,7 +1517,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
         for (let k = 0; k < 2; k++) sparks.push({ x: playerScreenX + rand(-KX * .12, KX * .12), y: H - KY * .04, vx: rand(-30, 30), vy: rand(40, 120), life: .45, col: `hsl(${(t * 300 + k * 60) % 360},95%,62%)` });
       speed = Math.max(0, speed);
       // steering: faster response at speed, but never twitchy
-      const want = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      const want = (input.right || roadSteer.right ? 1 : 0) - (input.left || roadSteer.left ? 1 : 0);
       const rate = 1.5 * Math.min(1, .35 + speed / 7000);
       steerVel += (want * rate - steerVel) * Math.min(1, dt * 9);
       playerX += steerVel * dt * (speed > 50 ? 1 : 0);
@@ -3566,7 +3570,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     }
     if (e.key === ' ' && mode === 'cup') { e.preventDefault(); if (!e.repeat) useItem(); return; }
     const k = KEYMAP[e.key];
-    if (k) { input[k] = true; if (state === 'race') e.preventDefault(); }
+    if (k) { touchMode = false; input[k] = true; if (state === 'race') e.preventDefault(); }
     if (e.repeat) return;
     if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (state === 'race' || state === 'countdown')) paused = !paused;
     if (e.key === 'c' || e.key === 'C') toggleCam();
@@ -3579,10 +3583,10 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     const k = KEYMAP[e.key]; if (k && !(e.key === ' ' && mode === 'cup')) input[k] = false;
     if (e.key === 'h' || e.key === 'H') horn(false);
   });
-  addEventListener('blur', () => { Object.keys(input).forEach(k => input[k] = false); if (duo) duo.ps.forEach(p => Object.keys(p.input).forEach(k => p.input[k] = false)); horn(false); });
+  addEventListener('blur', () => { Object.keys(input).forEach(k => input[k] = false); roadPts.clear(); setRoadSteer(); if (duo) duo.ps.forEach(p => Object.keys(p.input).forEach(k => p.input[k] = false)); horn(false); });
   document.querySelectorAll('.dp .pad').forEach(el => {
     const id = +el.closest('.dp').dataset.p, k = el.dataset.d;
-    const on = e => { e.preventDefault(); el.classList.add('on'); el.setPointerCapture && el.setPointerCapture(e.pointerId); if (duo && state !== 'finished') duo.ps[id].input[k] = true; };
+    const on = e => { e.preventDefault(); touchMode = true; el.classList.add('on'); el.setPointerCapture && el.setPointerCapture(e.pointerId); if (duo && state !== 'finished') duo.ps[id].input[k] = true; };
     const off = () => { el.classList.remove('on'); if (duo) duo.ps[id].input[k] = false; };
     el.addEventListener('pointerdown', on);
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => el.addEventListener(ev, off));
@@ -3591,12 +3595,22 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   $('openDuo').onclick = showDuoIntro;
   document.querySelectorAll('.pad').forEach(el => {
     const k = el.dataset.in;
-    const on = e => { e.preventDefault(); el.classList.add('on'); if (k === 'item') { useItem(); return; } el.setPointerCapture && el.setPointerCapture(e.pointerId); input[k] = true; };
+    const on = e => { e.preventDefault(); touchMode = true; el.classList.add('on'); if (k === 'item') { useItem(); return; } el.setPointerCapture && el.setPointerCapture(e.pointerId); input[k] = true; };
     const off = () => { input[k] = false; el.classList.remove('on'); };
     el.addEventListener('pointerdown', on);
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => el.addEventListener(ev, off));
     el.addEventListener('contextmenu', e => e.preventDefault());
   });
+  function setRoadSteer() { const v = [...roadPts.values()]; roadSteer.left = v.includes('left'); roadSteer.right = v.includes('right'); }
+  const roadSide = e => { const r = cv.getBoundingClientRect(); return e.clientX - r.left < r.width / 2 ? 'left' : 'right'; };
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || mode === 'duo' || paused || !(state === 'race' || state === 'countdown')) return;
+    e.preventDefault(); touchMode = true; cv.setPointerCapture && cv.setPointerCapture(e.pointerId);
+    roadPts.set(e.pointerId, roadSide(e)); setRoadSteer();
+  });
+  cv.addEventListener('pointermove', e => { if (roadPts.has(e.pointerId)) { roadPts.set(e.pointerId, roadSide(e)); setRoadSteer(); } });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => cv.addEventListener(ev, e => { if (roadPts.delete(e.pointerId)) setRoadSteer(); }));
+  cv.addEventListener('contextmenu', e => e.preventDefault());
   function toggleCam() { st.cam = st.cam ? 0 : 1; save(); }
   $('cam').onclick = toggleCam;
   $('go').onclick = startRace;
