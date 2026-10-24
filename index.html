@@ -267,7 +267,7 @@ canvas#road { touch-action: none; }
 .gplayers button.on[data-gp="2"] { color: #fff; border-color: #39b6ff; background: rgba(57,182,255,.22); }
 #openDuo { grid-column: 1 / -1; background: linear-gradient(90deg, #d3132b, #8b2bff 50%, #1f6bff); border-color: #fff; color: #fff; }
 body.duo .hud, body.duo .stage { max-width: 1280px; }
-body.duo .pads { display: none !important; }
+body.duo .pads, body.gar .pads { display: none !important; }
 body.duo .stat.coin, body.duo .stat.spd { display: none; }
 .duopads { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 @media (hover: none), (pointer: coarse) { body.duo .duopads { display: block; } }
@@ -3568,6 +3568,8 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     const dt = Math.min(.05, (now - last) / 1000); last = now;
     const gdt = dt * GAME_PACE;
     if (mode === 'duo') updateDuo(gdt, now / 1000); else update(gdt, now / 1000);
+    const inGar = !garage.hidden;
+    if (inGar !== document.body.classList.contains('gar')) { document.body.classList.toggle('gar', inGar); resize(); if (inGar) sizePreview(); }
     const pk = mode === 'cup' && state === 'race' ? (held || (rolling > 0 ? '?' : '-')) : 'x';
     if (pk !== powKey) {
       powKey = pk;
