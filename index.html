@@ -256,6 +256,9 @@ canvas#road { touch-action: none; }
 .pad.nos { background: #12304a; border-color: var(--nitro); }
 .pad.pow { background: #3a2f10; border-color: var(--gold); }
 .pad.on { filter: brightness(1.6); transform: translateY(2px); }
+.pad.pow.ready { background: #ffc93c; color: #12101f; border-color: #fff; font-size: 15px; animation: powpulse .6s ease-in-out infinite alternate; }
+.pad.pow.off { opacity: .45; }
+@keyframes powpulse { to { box-shadow: 0 0 16px #ffc93c; transform: scale(1.05); } }
 @media (min-width: 760px) and (hover: hover) { .pads { display: none; } }
 [hidden] { display: none !important; }
 .gplayers { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: none; }
@@ -2808,7 +2811,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
       const icon = held ? ITEMS[held].icon : rolling > 0 ? ITEMS[ITEM_KEYS[Math.floor(t * 14) % ITEM_KEYS.length]].icon : '';
       if (icon) { ctx.font = `32px ${EMOJI}`; ctx.fillText(icon, ix + s0 / 2, iy + s0 / 2 + 2); }
       else { ctx.fillStyle = '#6d6790'; ctx.font = '10px Bungee, Impact, sans-serif'; ctx.fillText('NO ITEM', ix + s0 / 2, iy + s0 / 2); }
-      if (held) { ctx.fillStyle = '#ffc93c'; ctx.font = '11px Bungee, Impact, sans-serif'; ctx.fillText('SPACE!', ix + s0 / 2, iy + s0 + 12); }
+      if (held) { ctx.fillStyle = '#ffc93c'; ctx.font = '11px Bungee, Impact, sans-serif'; ctx.fillText(touchMode ? 'TAP!' : 'SPACE!', ix + s0 / 2, iy + s0 + 12); }
       let ex = ix + s0 + 10;
       [['boost', boostT], ['shield', shieldT], ['ram', ramT]].forEach(([k, v]) => {
         if (v <= 0) return;
@@ -3208,6 +3211,16 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     ctx.restore();
   }
   function drawMirror(d, t) {
+    if (W < 500) { // phones: a tiny badge instead of the big mirror, so you can see the road
+      const n = d.stopped.length, txt = n ? `${n} STOPPED!` : 'DUCKS!', bx = W - 14, by = 80;
+      ctx.save(); ctx.font = '11px Bungee, Impact, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(txt).width + 34;
+      ctx.fillStyle = 'rgba(18,16,31,.78)'; rrv(ctx, bx - tw, by, tw, 24, 12, 12); ctx.fill();
+      ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.font = `14px ${EMOJI}`; ctx.textAlign = 'left'; ctx.fillText('🦆', bx - tw + 7 + Math.sin(t * 10) * 1.5, by + 12.5);
+      ctx.font = '11px Bungee, Impact, sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.fillText(txt, bx - 9, by + 13);
+      ctx.restore(); return;
+    }
     const mw = Math.min(200, W * .44), mh = mw * .46, mx = W - mw - 16, my = 86;
     ctx.save();
     const frame = ctx.createLinearGradient(0, my - 8, 0, my + mh + 8); frame.addColorStop(0, '#3a3b42'); frame.addColorStop(1, '#141519');
@@ -3548,12 +3561,19 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   document.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.tab; gPrev = null; $('gmsg').textContent = ''; renderGarage(); $('glist').scrollTop = 0; });
 
   // ================= LOOP + CONTROLS =================
+  const powPad = document.querySelector('.pad.pow'); let powKey = '';
   const GAME_PACE = .78; // slows the whole game down a little (cars, rivals, traffic all together, so races stay fair)
   let last = performance.now();
   function loop(now) {
     const dt = Math.min(.05, (now - last) / 1000); last = now;
     const gdt = dt * GAME_PACE;
     if (mode === 'duo') updateDuo(gdt, now / 1000); else update(gdt, now / 1000);
+    const pk = mode === 'cup' && state === 'race' ? (held || (rolling > 0 ? '?' : '-')) : 'x';
+    if (pk !== powKey) {
+      powKey = pk;
+      powPad.textContent = held ? ITEMS[held].icon + ' USE' : 'POWER';
+      powPad.classList.toggle('ready', !!held); powPad.classList.toggle('off', mode === 'cup' && !held);
+    }
     drawFrame(now / 1000);
     if (!garage.hidden) drawPreview(now / 1000);
     if (mode === 'duo') { const a = W, b = H; W = FW; H = FH; drawConfetti(dt); W = a; H = b; } else drawConfetti(dt);
@@ -3607,6 +3627,10 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   function setRoadSteer() { const v = [...roadPts.values()]; roadSteer.left = v.includes('left'); roadSteer.right = v.includes('right'); }
   const roadSide = e => { const r = cv.getBoundingClientRect(); return e.clientX - r.left < r.width / 2 ? 'left' : 'right'; };
   cv.addEventListener('pointerdown', e => {
+    if (mode === 'cup' && state === 'race' && held) {
+      const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      if (x < 90 && y > 76 && y < 168) { e.preventDefault(); useItem(); return; }
+    }
     if (e.pointerType === 'mouse' || mode === 'duo' || paused || !(state === 'race' || state === 'countdown')) return;
     e.preventDefault(); touchMode = true; cv.setPointerCapture && cv.setPointerCapture(e.pointerId);
     roadPts.set(e.pointerId, roadSide(e)); setRoadSteer();
