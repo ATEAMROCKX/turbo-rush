@@ -571,7 +571,8 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   const SAVE_KEY = 'turboGarage';
   let st = { bank: 0, best: 0, cars: ['hatch'], extras: [], car: 'hatch', color: '#d3132b', on: {}, muted: false, cam: 0, wins: {}, plate: 'TURBO', chal: {}, theme: 'auto', paints: [], decals: [], decal: 'none', decalCol: '#ffffff', neonCol: '#2ef2ff' };
   try {
-    const raw = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    // inside the phone app, the app's own storage is the master copy of the save
+    const raw = window.__TR_SAVE || JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (raw) { st = Object.assign(st, raw); st.wins = st.wins || {}; st.chal = st.chal || {}; }
     else { const b = +localStorage.getItem('turboBest'); if (b) st.best = b; }
   } catch (e) {}
@@ -580,7 +581,9 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   st.p2 = Object.assign({ car: 'hatch', color: '#1f6bff', decal: 'none', decalCol: '#ffffff', neonCol: '#2ef2ff', on: {}, plate: 'PLAYER 2' }, st.p2 || {});
   function swapLook() { LOOK.forEach(k => { const v = st[k]; st[k] = st.p2[k]; st.p2[k] = v; }); st.gp = st.gp === 2 ? 1 : 2; }
   if (st.gp === 2) swapLook();
-  const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {} };
+  const toApp = msg => { try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(msg)); } catch (e) {} };
+  const haptic = k => toApp({ t: 'haptic', k });
+  const save = () => { const d = JSON.stringify(st); try { localStorage.setItem(SAVE_KEY, d); } catch (e) {} toApp({ t: 'save', d }); };
   const carInfo = () => CARS.find(c => c.id === st.car) || CARS[0];
   // ================= SEASONAL THEMES =================
   let THEME = null;
@@ -1699,6 +1702,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     for (let i = 0; i < 22; i++) sparks.push({ x: playerScreenX + rand(-50, 50), y: cy, vx: rand(-350, 350), vy: rand(-420, -40), g: 700, life: .7, col: pick(['#ffb02e', '#fff3c4', '#ff6b2c', '#ffd84a']) });
   }
   function smashCar(c) {
+    haptic('heavy');
     const side = Math.sign(c.x - playerX) || (Math.random() < .5 ? -1 : 1);
     c.smash = { vx: side * rand(1.6, 2.6), h: 0, vy: rand(2200, 3400), rot: 0, rv: side * rand(5, 9), t: 0 };
     c.speed = Math.max(c.speed, speed * .9);
@@ -1706,6 +1710,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     takedownReward('TAKEDOWN!', 100);
   }
   function hitTraffic(c) {
+    haptic('medium');
     if (shieldT > 0) {
       ghost = .6; const side = Math.sign(playerX - c.x) || 1; playerX += side * .08; steerVel = 0;
       blip(320, 160, .15, 'square', .05); pop('SHIELD SAVE!', '#36e0b0');
@@ -1801,6 +1806,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   }
 
   function launchConfetti(amount = 1, rain = false) {
+    if (!rain) haptic('success');
     const cols = ['#ffc93c', '#ff4f6d', '#36e0b0', '#39b6ff', '#ffffff', '#b77bff', '#ff9f1c'];
     const n = Math.round((reduceMotion ? 60 : 160) * amount);
     for (let i = 0; i < n; i++) {
@@ -2837,7 +2843,7 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
       ctx.fillStyle = 'rgba(18,16,31,.6)'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f4f1ff'; ctx.font = '32px Bungee, Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('PAUSED', W / 2, H / 2);
-      ctx.font = '14px Rubik, sans-serif'; ctx.fillText('Tap II or press P to keep racing', W / 2, H / 2 + 34);
+      ctx.font = '14px Rubik, sans-serif'; ctx.fillText(touchMode ? 'Tap II to keep racing' : 'Tap II or press P to keep racing', W / 2, H / 2 + 34);
     }
     ctx.restore();
   }
@@ -3519,13 +3525,15 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   };
   $('pauseBtn').onclick = () => { if (state === 'race' || state === 'countdown') { paused = !paused; horn(false); } };
   // pause automatically when the app or tab goes into the background
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      if (state === 'race' || state === 'countdown') paused = true;
-      Object.keys(input).forEach(k => input[k] = false); horn(false);
-      if (AC && AC.state === 'running') AC.suspend();
-    } else if (AC && AC.state === 'suspended' && !st.muted) AC.resume();
-  });
+  function goBackground() {
+    if (state === 'race' || state === 'countdown') paused = true;
+    Object.keys(input).forEach(k => input[k] = false); horn(false);
+    if (duo) duo.ps.forEach(p => Object.keys(p.input).forEach(k => p.input[k] = false));
+    if (AC && AC.state === 'running') AC.suspend();
+  }
+  function goForeground() { if (AC && AC.state === 'suspended' && !st.muted) AC.resume(); }
+  window.turboPause = goBackground; window.turboResume = goForeground; // called by the phone app
+  document.addEventListener('visibilitychange', () => { if (document.hidden) goBackground(); else goForeground(); });
   $('openRaces').onclick = () => { audioInit(); menu.hidden = true; $('races').hidden = false; $('rmsg').textContent = ''; renderRaces(); };
   $('openChals').onclick = () => openChals();
   $('closeChals').onclick = () => { $('chals').hidden = true; menu.hidden = false; $('openChals').focus(); };
