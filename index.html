@@ -770,9 +770,14 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
   // ================= SOUND =================
   let AC = null, eng = null, hornNodes = null;
   function audioInit() {
-    if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+    // iPhone: play game sound even when the phone is on silent (iOS 17+), like a video would
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (AC) { if (AC.state !== 'running' && !st.muted) AC.resume(); return; }
     try {
       AC = new (window.AudioContext || window.webkitAudioContext)();
+      // iPhone needs a tiny silent sound inside a tap to "wake up" audio
+      const wake = AC.createBufferSource(); wake.buffer = AC.createBuffer(1, 1, 22050); wake.connect(AC.destination); wake.start(0);
+      if (AC.state !== 'running') AC.resume();
       const out = AC.createGain(); out.gain.value = 0; out.connect(AC.destination);
       const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 700; f.connect(out);
       const o1 = AC.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 50;
@@ -3531,7 +3536,9 @@ body.stack .dp.p1 { bottom: 0; } body.stack .dp.p2 { top: 0; transform: rotate(1
     if (duo) duo.ps.forEach(p => Object.keys(p.input).forEach(k => p.input[k] = false));
     if (AC && AC.state === 'running') AC.suspend();
   }
-  function goForeground() { if (AC && AC.state === 'suspended' && !st.muted) AC.resume(); }
+  function goForeground() { if (AC && AC.state !== 'running' && !st.muted) AC.resume(); }
+  // any tap anywhere also wakes audio up again (iPhone can pause it after calls, alarms or the app being in the background)
+  ['touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, () => { if (!st.muted) audioInit(); }, { passive: true, capture: true }));
   window.turboPause = goBackground; window.turboResume = goForeground; // called by the phone app
   document.addEventListener('visibilitychange', () => { if (document.hidden) goBackground(); else goForeground(); });
   $('openRaces').onclick = () => { audioInit(); menu.hidden = true; $('races').hidden = false; $('rmsg').textContent = ''; renderRaces(); };
