@@ -7,7 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#12101f",
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ateamrockx.turborush",
@@ -35,6 +37,15 @@
           "backgroundColor": "#12101f"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b350fd28-d6d4-4685-9470-99c49882b6f4"
+      }
+    },
+    "owner": "ateamrockx",
+    "updates": {
+      "url": "https://u.expo.dev/b350fd28-d6d4-4685-9470-99c49882b6f4"
+    }
   }
 }
