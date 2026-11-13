@@ -54,4 +54,4 @@ Data Not Collected.
 Cartoon or Fantasy Violence: Infrequent/Mild (cars bump and spin out). Everything else: None. Unrestricted web access: No. User-generated content: No (the plate name stays on the device). Expected result: 4+ or 9+.
 
 ## Screenshots
-store/screenshots/*.png — 1320 × 2868 (6.9" iPhone). Upload in order 1–5.
+store/screenshots/*.png — 1206 × 2622 ("iPhone with Dynamic Island (medium display)", required). Upload in order 1–5.
